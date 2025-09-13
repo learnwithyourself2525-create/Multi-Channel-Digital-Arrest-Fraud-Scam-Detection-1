@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fraud Detection System</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <h1>Multi-Channel Fraud Detection System</h1>
+
+    <div class="card">
+        <h2>Text Analysis (SMS/Email)</h2>
+        <textarea id="textInput" rows="4" placeholder="Enter text to analyze..."></textarea>
+        <button onclick="analyzeText()">Analyze Text</button>
+    </div>
+
+    <div class="card">
+        <h2>Audio Analysis (Call)</h2>
+        <input type="file" id="audioInput" accept="audio/*">
+        <button onclick="analyzeAudio()">Analyze Audio</button>
+    </div>
+
+    <div class="card">
+        <h2>Real-Time Video Analysis (Webcam)</h2>
+        <video id="video" width="400" height="300" autoplay></video>
+        <button id="startVideoBtn" onclick="startVideoStream()">Start Webcam</button>
+        <p>Status: <span id="videoStatus">Idle</span></p>
+    </div>
+
+    <div class="card">
+        <h2>Real-Time Alerts</h2>
+        <ul id="alerts"></ul>
+    </div>
+
+    <script>
+        // WebSocket for general alerts
+        const alertSocket = new WebSocket(`ws://${window.location.host}/ws/alerts`);
+        const alertsList = document.getElementById('alerts');
+        alertSocket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            const item = document.createElement('li');
+            item.innerHTML = `<strong>[${data.type}]</strong>: ${JSON.stringify(data.result)}`;
+            alertsList.prepend(item);
+        };
+
+        // Text Analysis
+        function analyzeText() {
+            const text = document.getElementById('textInput').value;
+            fetch('/analyze/text', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+        }
+
+        // Audio Analysis
+        function analyzeAudio() {
+            const input = document.getElementById('audioInput');
+            if (input.files.length === 0) {
+                alert("Please select an audio file.");
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', input.files);
+            fetch('/analyze/audio', {
+                method: 'POST',
+                body: formData
+            });
+        }
+
+        // Video Analysis
+        let videoSocket;
+        let streamInterval;
+        const videoElem = document.getElementById('video');
+        const videoStatus = document.getElementById('videoStatus');
+
+        async function startVideoStream() {
+            if (navigator.mediaDevices.getUserMedia) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    videoElem.srcObject = stream;
+                    videoStatus.textContent = "Connecting...";
+
+                    videoSocket = new WebSocket(`ws://${window.location.host}/ws/video`);
+                    
+                    videoSocket.onopen = () => {
+                        videoStatus.textContent = "Streaming to server...";
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.width = 400;
+                        canvas.height = 300;
+
+                        streamInterval = setInterval(() => {
+                            if (videoSocket.readyState === WebSocket.OPEN) {
+                                context.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+                                canvas.toBlob(blob => {
+                                    videoSocket.send(blob);
+                                }, 'image/jpeg', 0.8);
+                            }
+                        }, 500); // Send a frame every 500ms
+                    };
+
+                    videoSocket.onclose = () => {
+                        videoStatus.textContent = "Disconnected.";
+                        clearInterval(streamInterval);
+                    };
+
+                } catch (err) {
+                    console.error("Error accessing webcam: ", err);
+                    videoStatus.textContent = "Error accessing webcam.";
+                }
+            }
+        }
+    </script>
+</body>
+</html>

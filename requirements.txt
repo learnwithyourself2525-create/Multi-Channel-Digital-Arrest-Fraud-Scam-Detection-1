@@ -1,0 +1,27 @@
+# Core & UI
+streamlit==1.33.0
+pandas==2.2.1
+numpy==1.26.4
+
+# ML & NLP
+scikit-learn==1.4.1.post1
+transformers==4.39.3
+torch==2.2.2
+textblob==0.18.0.post0
+
+# Audio Processing
+openai-whisper==20231117
+librosa==0.10.1
+soundfile==0.12.1
+
+# Video Processing
+opencv-python-headless==4.9.0.80
+deepface==0.0.79
+
+# Reputation & Validation
+phonenumbers==8.13.35
+email-validator==2.1.1
+
+# Utilities
+requests==2.31.0
+tqdm==4.66.2
